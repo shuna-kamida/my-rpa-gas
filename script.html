@@ -1,0 +1,127 @@
+<script>
+  let currentTheme = null; // Light または Dark
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    currentTheme = prefersDark ? 'dark' : 'light';
+    applyThemeWithAnimation();
+  });
+
+  window.onload = function() {
+    google.script.run
+      .withSuccessHandler(fileUrl => {
+        document.getElementById('fileUrlArea').innerHTML = `<a href="${fileUrl}" target="_blank" class="link-primary">
+          <i class="bi bi-link-45deg"></i> 勤務表を開く
+        </a>`;
+      })
+      .withFailureHandler(error => {
+        showToast('URL取得エラー: ' + error.message, true);
+      })
+      .getWorkScheduleUrl();
+  };
+
+  function setTheme(mode) {
+    currentTheme = mode;
+    applyThemeWithAnimation();
+  }
+
+  function applyThemeWithAnimation() {
+    const body = document.body;
+    body.classList.add('fade-transition');
+    applyTheme();
+
+    setTimeout(() => {
+      body.classList.remove('fade-transition');
+    }, 600);
+  }
+
+  function applyTheme() {
+    const body = document.body;
+    body.classList.remove('dark-mode');
+
+    if (currentTheme === 'dark') {
+      body.classList.add('dark-mode');
+    }
+
+    updateActiveButton(currentTheme);
+  }
+
+  function updateActiveButton(mode) {
+    ['light', 'dark'].forEach(btnMode => {
+      const button = document.getElementById(`btn-${btnMode}`);
+      if (button) {
+        button.classList.toggle('active', btnMode === mode);
+      }
+    });
+  }
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!currentTheme || currentTheme === 'auto') {
+      currentTheme = e.matches ? 'dark' : 'light';
+      applyThemeWithAnimation();
+    }
+  });
+
+  function onCreateWorkSchedule() {
+    const btn = document.getElementById('createBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 作成中...';
+
+    google.script.run
+      .withSuccessHandler(response => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plus-circle me-2"></i> 勤務表を作成する';
+        showToast(response);
+        google.script.run.withSuccessHandler(fileUrl => {
+          document.getElementById('fileUrlArea').innerHTML = `<a href="${fileUrl}" target="_blank" class="link-primary">
+            <i class="bi bi-link-45deg"></i> 勤務表を開く
+          </a>`;
+        });
+      })
+      .withFailureHandler(error => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plus-circle me-2"></i> 勤務表を作成する';
+        showToast('作成エラー: ' + error.message, true);
+      })
+      .createWorkSchedule();
+  }
+
+  function onWriteCalendarEvents() {
+    const btn = document.getElementById('calendarBtn');
+    const dateInput = document.getElementById('calendarDate').value;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 登録中...';
+
+    google.script.run
+      .withSuccessHandler(response => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-calendar-event me-2"></i> カレンダー登録';
+        showToast(response);
+      })
+      .withFailureHandler(error => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-calendar-event me-2"></i> カレンダー登録';
+        showToast('登録エラー: ' + error.message, true);
+      })
+      .writeCalendarEvents(dateInput);
+  }
+
+  function showToast(message, isError = false) {
+    const toastElement = document.getElementById('mainToast');
+    const toastMessage = document.getElementById('toastMessage');
+
+    toastMessage.textContent = message;
+
+    if (isError) {
+      toastElement.classList.remove('text-bg-success');
+      toastElement.classList.add('text-bg-danger');
+    } else {
+      toastElement.classList.remove('text-bg-danger');
+      toastElement.classList.add('text-bg-success');
+    }
+
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+  }
+</script>
